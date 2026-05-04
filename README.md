@@ -62,16 +62,52 @@ See [`SUBMISSION.md`](SUBMISSION.md) for the full contract.
 
 ## Quick start
 
+### 1. Fork the repo
+
+This is the **first step**. You don't push back to this course's repo — your work lives in your fork. The LMS judge probes whatever URL you submit; your fork is where the code that produces that URL lives.
+
 ```bash
-git clone https://github.com/tusharbisht/cs-demo-agent-to-production.git
+gh repo fork tusharbisht/cs-demo-agent-to-production --clone
 cd cs-demo-agent-to-production
-git checkout tour/from-demo-to-production    # 30-min orientation
-cat EXERCISE.md
-git checkout demo/customer-support-agent     # the inherited demo
-uv sync && make run                          # then open http://localhost:8000
 ```
 
-Then `exercise/01-observability` and onward.
+(Or click the "Fork" button on GitHub, then `git clone` your fork.)
+
+### 2. Run the demo agent locally
+
+`main` has the starter agent — the same code described in [`tour/from-demo-to-production`](../../tree/tour/from-demo-to-production). Confirm it runs end-to-end before you start any exercise:
+
+```bash
+uv sync                                    # creates .venv, installs from uv.lock
+export ANTHROPIC_API_KEY=sk-ant-...
+make run                                   # then open http://localhost:8000
+```
+
+Talk to it through the browser UI. You should see traces of its production-grade gaps — no observability, in-process state, no fallback, etc.
+
+### 3. Pick an exercise
+
+Each `exercise/*` branch ships:
+- `main`'s starter code (so you can run + edit immediately)
+- `EXERCISE.md` / `SPEC.md` / `EXAMPLES.md` describing what to add
+- `grading/<slug>/` with the judge config the LMS uses
+- `.github/workflows/judge.yml` for CI smoke + (optional) deploy
+
+```bash
+git checkout exercise/01-observability     # your fork's branch
+# Read EXERCISE.md / SPEC.md / EXAMPLES.md
+# Edit agent.py + add your stack (Langfuse, etc.)
+git push origin exercise/01-observability  # CI runs on every push
+```
+
+### 4. Host + submit
+
+Deploy your fork's exercise branch to any public host (Render / Fly / Railway / your VPS). The LMS judge probes a URL — pick whatever path puts a URL in front of it:
+
+- The simplest: `make run` locally + an [`ngrok`](https://ngrok.com) tunnel
+- Production-grade: `fly deploy` from CI; the workflow file is templated
+
+Submit the hosted URL on the LMS slide-3 form. The judge runs the probes from `grading/<slug>/judge.json` against your URL and posts back a score.
 
 ## What you'll need
 
