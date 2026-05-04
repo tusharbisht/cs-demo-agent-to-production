@@ -1,0 +1,17 @@
+[project]
+name = "cs-demo-agent"
+version = "0.1.0"
+description = "Customer support agent — demo build, intentionally fragile"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.110",
+  "uvicorn[standard]>=0.27",
+  "anthropic>=0.40",
+  "pydantic>=2.6",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.27",
+  "pytest>=8.0",
+]
