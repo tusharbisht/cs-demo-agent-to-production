@@ -99,7 +99,8 @@ All exercises expose `/chat`, `/health`, `/trace/{id}`, `/eval`. Exercise 04 onw
 
 The starting code on `demo/customer-support-agent` must be:
 
-- **Real, runnable.** `python agent.py && curl localhost:8000/chat -d '...'` works in 30 seconds.
+- **Real, runnable.** `make run` and opening `localhost:8000` in a browser yields a working chatbot UI in 30 seconds.
+- **Browser-first.** `GET /` serves a minimal HTML chat UI (no external deps). Curl is documented as a fallback for inspecting the JSON contract, never the primary first-interaction path. (See `claude-code-lms/repo-templates/system-design-repo/CLAUDE.md` §13.)
 - **Believable as a Friday-afternoon PoC.** It works on the happy path. It demos beautifully. Its flaws are not obvious until probe-time.
 - **Honest about its flaws in the README.** The branch's own README enumerates the gaps so learners go in eyes-open.
 - **Stable across exercises.** Learners build on top; the four exercises are diffs against this baseline.
