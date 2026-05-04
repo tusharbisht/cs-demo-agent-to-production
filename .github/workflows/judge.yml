@@ -1,0 +1,63 @@
+name: judge
+
+# Runs on every push to this exercise branch. Smoke-tests that the agent
+# imports + starts cleanly. The actual graded probes run on the LMS judge
+# worker against a hosted URL — see SUBMISSION.md for the dev loop.
+#
+# To extend this into auto-deploy, uncomment the deploy job and set
+# FLY_API_TOKEN as a repo secret. Or wire to Render/Railway/your VPS.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Sync deps
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          uv sync --frozen
+
+      - name: Import smoke (agent loads without ANTHROPIC_API_KEY)
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          uv run python -c "
+          from fastapi.testclient import TestClient
+          import agent
+          c = TestClient(agent.app)
+          assert c.get('/health').status_code == 200
+          assert c.get('/info').status_code == 200
+          assert c.get('/').status_code == 200
+          print('agent imports + serves /, /health, /info ✓')
+          "
+
+      - name: Verify whitelisted docs present (slide-3 link panel)
+        run: |
+          for f in EXERCISE.md SPEC.md EXAMPLES.md; do
+            test -f "$f" && echo "  ✓ $f" || echo "  - $f (optional, ok if missing)"
+          done
+
+  # Uncomment below to auto-deploy to Fly.io. Add FLY_API_TOKEN repo secret
+  # and a fly.toml in the repo root. The LMS judge then probes the deploy URL
+  # via the existing manual-paste flow (Phase 1) — Phase 2 will wire a
+  # webhook to auto-submit the URL.
+  #
+  # deploy:
+  #   needs: smoke
+  #   runs-on: ubuntu-latest
+  #   if: github.ref != 'refs/heads/main'
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: superfly/flyctl-actions/setup-flyctl@master
+  #     - run: flyctl deploy --remote-only --app cs-demo-${{ github.actor }}-${{ github.ref_name }}
+  #       env:
+  #         FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
