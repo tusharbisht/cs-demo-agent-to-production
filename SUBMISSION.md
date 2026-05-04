@@ -6,6 +6,47 @@ Every `exercise/*` and `final/*` branch ships a service exposing exactly these e
 
 ---
 
+## Where you actually write code (the dev loop)
+
+You don't push back to this course's repo. Your work lives in **your fork**. The flow:
+
+```bash
+# 1. Fork (one-time)
+gh repo fork tusharbisht/cs-demo-agent-to-production --clone
+cd cs-demo-agent-to-production
+
+# 2. Confirm the demo runs (main has the starter agent)
+uv sync
+export ANTHROPIC_API_KEY=sk-ant-...
+make run                                   # http://localhost:8000
+
+# 3. Pick an exercise — it has the same starter code + a brief
+git checkout exercise/01-observability
+#    EXERCISE.md / SPEC.md / EXAMPLES.md describe what to add
+#    grading/exercise-01-observability/judge.json + rubric.md = how the LMS scores
+#    .github/workflows/judge.yml = CI smoke on push
+
+# 4. Edit + push
+$EDITOR agent.py                           # add Langfuse, etc.
+git add . && git commit -m "exercise 01"
+git push origin exercise/01-observability  # CI runs
+
+# 5. Host (any of):
+#    - ngrok / Cloudflare Tunnel from `make run` locally     (fastest)
+#    - render.com / fly.io / railway.app deploy              (production-grade)
+#    - your VPS                                              (full control)
+
+# 6. Submit the hosted URL on the LMS slide-3 form
+#    The LMS judge probes your URL with the branch's judge.json
+#    and posts a score back to your dashboard.
+```
+
+**Each exercise is self-contained from `main`'s baseline.** You can do them in any order, on parallel branches, or merge them all into your fork's `main` to build the integrated agent (graded by `final/integrated`).
+
+CI on push runs `.github/workflows/judge.yml`: smoke-tests that the agent imports cleanly and serves `/`, `/health`, `/info`. It does **not** auto-deploy in this template — uncomment the deploy job + set `FLY_API_TOKEN` to enable Fly.io auto-deploys. The actual graded probes always run on the LMS judge against whichever URL you submit.
+
+---
+
 ## `GET /health`
 
 Trivial readiness probe.
