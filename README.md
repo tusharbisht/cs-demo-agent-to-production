@@ -14,13 +14,51 @@ It uses:
 - An **in-process Python dict** for conversation state
 - A 12-row **eval set** at `eval/golden.jsonl` — but no harness to run it
 
-## Run it
+## Dependencies (the source of truth)
+
+The dependencies needed to run this agent are declared in [`pyproject.toml`](pyproject.toml) and pinned in [`uv.lock`](uv.lock). The Python version is pinned in [`.python-version`](.python-version).
+
+**Runtime deps:** `fastapi`, `uvicorn[standard]`, `anthropic`, `pydantic`. **Dev extras:** `httpx`, `pytest`. That's the whole list — the demo is intentionally minimal. Each `exercise/*` branch will add its own (e.g., `langfuse` in 01, `langgraph` + `langgraph-checkpoint-postgres` in 02, `scikit-learn` in 03).
+
+## Run it (recommended path: uv)
+
+[`uv`](https://docs.astral.sh/uv/) is the fastest Python package manager. It manages the venv, the lockfile, and the Python version for you. Install once:
 
 ```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# or:  brew install uv
+```
+
+Then:
+
+```bash
+git clone https://github.com/tusharbisht/cs-demo-agent-to-production.git
+cd cs-demo-agent-to-production
+git checkout demo/customer-support-agent
+
+uv sync                                    # creates .venv, installs deps from uv.lock
+export ANTHROPIC_API_KEY=sk-ant-...
+make run                                   # or: uv run python agent.py
+```
+
+`make smoke` will run the agent, hit `/health` and `/chat` once, print results, and tear down — useful for verifying setup in 30 seconds.
+
+## Run it (fallback: stdlib venv + pip)
+
+If you can't or won't install `uv` — or you hit the macOS Homebrew "externally-managed-environment" error doing `pip install` system-wide — use a venv:
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
 pip install -e .
+
 export ANTHROPIC_API_KEY=sk-ant-...
 python agent.py
 ```
+
+The deps will resolve from `pyproject.toml`. You won't get `uv.lock` reproducibility, but the agent will run.
+
+## Talk to it
 
 In another terminal:
 
