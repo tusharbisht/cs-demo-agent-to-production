@@ -1,14 +1,14 @@
 {
   "branch": "final/integrated",
   "endpoint": "POST /chat",
-  "manager_persona": "Engineering Manager — AI Platform. Capstone review: all four modules wired together at one URL. Score with the manager's voice consistent across 01-04 — the same person reading the same agent for a fifth time, this time looking for compositional integrity, not per-axis correctness. Cardinal sins are the union of all prior exercises' cardinal sins, plus: modules that pass independently but don't compose (low confidence doesn't trigger fallback; feedback doesn't reach calibration; etc.).",
+  "manager_persona": "Engineering Manager \u2014 AI Platform. Capstone review: all four modules wired together at one URL. Score with the manager's voice consistent across 01-04 \u2014 the same person reading the same agent for a fifth time, this time looking for compositional integrity, not per-axis correctness. Cardinal sins are the union of all prior exercises' cardinal sins, plus: modules that pass independently but don't compose (low confidence doesn't trigger fallback; feedback doesn't reach calibration; etc.).",
   "tests": [
     {
       "id": "health-all-modules-active",
       "type": "smoke",
       "endpoint_override": "GET /health",
       "expected": {
-        "instructions": "/health returns 200; modules_active MUST contain all four: 'observability', 'state-fallback', 'confidence', 'feedback'. Score 10 if all four. Score 0 if any missing — final branch grades the composite, not partial submissions."
+        "instructions": "/health returns 200; modules_active MUST contain all four: 'observability', 'state-fallback', 'confidence', 'feedback'. Score 10 if all four. Score 0 if any missing \u2014 final branch grades the composite, not partial submissions."
       },
       "weight": 1.0
     },
@@ -16,9 +16,9 @@
       "id": "composite-normal-chat",
       "type": "all_axes_normal",
       "input": {
-        "scenario_id": "p_norm",
-        "input": {"conversation_id": "conv_norm", "user_id": "u_norm",
-                   "message": "What does the Pro plan cost and what addons are available?"}
+        "conversation_id": "conv_norm",
+        "user_id": "u_norm",
+        "message": "What does the Pro plan cost and what addons are available?"
       },
       "expected": {
         "instructions": "Fire a normal /chat. The single response MUST include ALL of: trace_id (01), citations with verbatim quotes (01), tokens/cost reported (01), model_used (02), fallback_chain_taken (02), confidence + raw_confidence + confidence_reasoning + should_escalate + refused (03), prompt_version in trace metadata (04). Score 10 if all fields present and well-formed. Score 5 if 1-2 missing. Score 0 if any module's required fields are entirely absent (means a module isn't wired up)."
@@ -29,12 +29,12 @@
       "id": "confidence-drives-fallback",
       "type": "module_composition",
       "input": {
-        "scenario_id": "p_conf_fb",
-        "input": {"conversation_id": "conv_cffb", "user_id": "u_cffb",
-                   "message": "Help me write a poem about my cat in iambic pentameter"}
+        "conversation_id": "conv_cffb",
+        "user_id": "u_cffb",
+        "message": "Help me write a poem about my cat in iambic pentameter"
       },
       "expected": {
-        "instructions": "Fire an off-domain query that should produce LOW confidence. The agent should: (a) calibrate confidence < 0.6 (03), (b) refused: true (03), (c) should_escalate: true (03), AND (d) the trace should show evidence the module compositions worked — either attempt_primary span exists with low-confidence-fallthrough OR escalation_check span shows the routing decision. Score 10 if confidence < 0.6 AND escalation routes appropriately AND trace reflects the composition. Score 5 if confidence handled but no compositional trace evidence. Score 0 if confidence is high (means 03 isn't really wired) OR no trace activity (01 broken)."
+        "instructions": "Fire an off-domain query that should produce LOW confidence. The agent should: (a) calibrate confidence < 0.6 (03), (b) refused: true (03), (c) should_escalate: true (03), AND (d) the trace should show evidence the module compositions worked \u2014 either attempt_primary span exists with low-confidence-fallthrough OR escalation_check span shows the routing decision. Score 10 if confidence < 0.6 AND escalation routes appropriately AND trace reflects the composition. Score 5 if confidence handled but no compositional trace evidence. Score 0 if confidence is high (means 03 isn't really wired) OR no trace activity (01 broken)."
       },
       "weight": 4.0
     },
@@ -42,7 +42,7 @@
       "id": "feedback-updates-calibration",
       "type": "module_composition",
       "expected": {
-        "instructions": "Multi-step probe: (1) Capture initial /calibration/curve. Note ECE and bin distribution. (2) Fire a /chat that produces a known-bad reply (KB-contradicting case). Capture trace_id. (3) POST /feedback with rating:-1 and expected_reply for the corrected answer. (4) POST /feedback/eval-candidates/{cid}/approve. (5) POST /eval/run — wait for completion. (6) Capture new /calibration/curve. Compare: at least one bin's n_in_bin OR empirical_accuracy differs from step (1). Score 10 if calibration shifted post-feedback (proves the loop closes). Score 5 if /eval grew but calibration unchanged (the loop isn't fully wired). Score 0 if nothing changed (CARDINAL SIN: feedback doesn't propagate)."
+        "instructions": "Multi-step probe: (1) Capture initial /calibration/curve. Note ECE and bin distribution. (2) Fire a /chat that produces a known-bad reply (KB-contradicting case). Capture trace_id. (3) POST /feedback with rating:-1 and expected_reply for the corrected answer. (4) POST /feedback/eval-candidates/{cid}/approve. (5) POST /eval/run \u2014 wait for completion. (6) Capture new /calibration/curve. Compare: at least one bin's n_in_bin OR empirical_accuracy differs from step (1). Score 10 if calibration shifted post-feedback (proves the loop closes). Score 5 if /eval grew but calibration unchanged (the loop isn't fully wired). Score 0 if nothing changed (CARDINAL SIN: feedback doesn't propagate)."
       },
       "weight": 5.0
     },
@@ -50,7 +50,7 @@
       "id": "restart-preserves-feedback",
       "type": "durability_composition",
       "expected": {
-        "instructions": "Multi-step: (1) /chat → trace_id. (2) POST /feedback rating:-1, comment:'restart-test'. (3) Wait 30s (LMS recycles container) OR have grader signal restart. (4) GET /trace/{trace_id} on the SAME trace_id. The feedback annotation must STILL be visible (rating:-1, comment:'restart-test'). Score 10 if feedback persists across restart. Score 0 if feedback is gone (means it was in-memory; CARDINAL SIN — durability + feedback don't compose)."
+        "instructions": "Multi-step: (1) /chat \u2192 trace_id. (2) POST /feedback rating:-1, comment:'restart-test'. (3) Wait 30s (LMS recycles container) OR have grader signal restart. (4) GET /trace/{trace_id} on the SAME trace_id. The feedback annotation must STILL be visible (rating:-1, comment:'restart-test'). Score 10 if feedback persists across restart. Score 0 if feedback is gone (means it was in-memory; CARDINAL SIN \u2014 durability + feedback don't compose)."
       },
       "weight": 4.0
     },
@@ -58,9 +58,9 @@
       "id": "all-tiers-fail-full-envelope",
       "type": "module_composition",
       "input": {
-        "scenario_id": "p_atf",
-        "input": {"conversation_id": "conv_atf", "user_id": "u_atf",
-                   "message": "any question"}
+        "conversation_id": "conv_atf",
+        "user_id": "u_atf",
+        "message": "any question"
       },
       "endpoint_override": "POST /chat",
       "expected": {
@@ -73,12 +73,12 @@
       "type": "cost_discipline",
       "fanout": 8,
       "input": {
-        "scenario_id": "p_cost_{i}",
-        "input": {"conversation_id": "conv_cost_{i}", "user_id": "u_cost",
-                   "message": "Tell me about Pro plan addons in 2 sentences"}
+        "conversation_id": "conv_cost_{i}",
+        "user_id": "u_cost",
+        "message": "Tell me about Pro plan addons in 2 sentences"
       },
       "expected": {
-        "instructions": "Fire 8 standard /chat calls. Sum cost_usd across all 8. Total MUST be <= $0.40. Average <= $0.05. With all 4 modules active (extra LLM calls for confidence calibration, grounding check, feedback retrieval), cost can creep up — the rubric checks it stays bounded. Score 10 if total <= $0.40. Score 6 if <= $0.60. Score 0 if > $0.80 (modules are stacking expensive calls — fix the architecture)."
+        "instructions": "Fire 8 standard /chat calls. Sum cost_usd across all 8. Total MUST be <= $0.40. Average <= $0.05. With all 4 modules active (extra LLM calls for confidence calibration, grounding check, feedback retrieval), cost can creep up \u2014 the rubric checks it stays bounded. Score 10 if total <= $0.40. Score 6 if <= $0.60. Score 0 if > $0.80 (modules are stacking expensive calls \u2014 fix the architecture)."
       },
       "weight": 3.0
     },
@@ -87,10 +87,19 @@
       "type": "trace_inspection",
       "endpoint_override": "GET /trace/{TID}",
       "setup": [
-        {"method": "POST", "path": "/chat",
-         "body": {"conversation_id": "conv_ts", "user_id": "u_ts",
-                  "message": "What does the Analytics addon cost?"},
-         "capture_as": {"key": "TID", "from": "trace_id"}}
+        {
+          "method": "POST",
+          "path": "/chat",
+          "body": {
+            "conversation_id": "conv_ts",
+            "user_id": "u_ts",
+            "message": "What does the Analytics addon cost?"
+          },
+          "capture_as": {
+            "key": "TID",
+            "from": "trace_id"
+          }
+        }
       ],
       "expected": {
         "instructions": "Single trace must show spans from all four modules. Required: retrieve_kb (01), draft_reply (01), state_checkpoint (02), attempt_primary (02), compute_raw_confidence (03), apply_calibration (03), escalation_check (03). Score 10 if all 7 span types present. Score 6 if 5-6 of 7. Score 3 if 4 of 7. Score 0 if < 4 (means modules aren't wired into the trace)."
@@ -111,9 +120,9 @@
       "type": "latency",
       "fanout": 6,
       "input": {
-        "scenario_id": "p_lat_{i}",
-        "input": {"conversation_id": "conv_lat_{i}", "user_id": "u_lat",
-                   "message": "Quick question about the Pro plan price"}
+        "conversation_id": "conv_lat_{i}",
+        "user_id": "u_lat",
+        "message": "Quick question about the Pro plan price"
       },
       "expected": {
         "instructions": "Fire 6 standard /chat. p95 latency_ms must be <= 5000ms with all modules active (vs 4000ms in 01-only). Calibration adds an extra LLM call; grader budgets for that. Score 10 if p95 <= 5s. Score 6 if <= 7s. Score 0 if > 10s (modules are stacking unacceptable latency).",
