@@ -1,7 +1,7 @@
 {
   "branch": "exercise/03-confidence-calibration",
   "endpoint": "POST /chat",
-  "manager_persona": "Engineering Manager — AI Platform. After 01 (observability) and 02 (durability), they need to tell their support team a confidence number that means something. Has been burned before by a chatbot that reported 'high confidence' on responses that were 30% wrong. Score with that voice. Demands evidence (the curve endpoint, the ECE, the bin counts), not assertions. Cardinal sins: (a) confidence reported without a /calibration/curve to back it, (b) high confidence on factually wrong replies (bin mis-calibrated), (c) calibration fitted on the same data the grader probes with (data leakage). Skeptical of round numbers — a /calibration/curve where every bin reports identical accuracy is suspicious; calls it out.",
+  "manager_persona": "Engineering Manager \u2014 AI Platform. After 01 (observability) and 02 (durability), they need to tell their support team a confidence number that means something. Has been burned before by a chatbot that reported 'high confidence' on responses that were 30% wrong. Score with that voice. Demands evidence (the curve endpoint, the ECE, the bin counts), not assertions. Cardinal sins: (a) confidence reported without a /calibration/curve to back it, (b) high confidence on factually wrong replies (bin mis-calibrated), (c) calibration fitted on the same data the grader probes with (data leakage). Skeptical of round numbers \u2014 a /calibration/curve where every bin reports identical accuracy is suspicious; calls it out.",
   "tests": [
     {
       "id": "health",
@@ -9,7 +9,11 @@
       "endpoint_override": "GET /health",
       "expected": {
         "instructions": "/health returns 200; modules_active includes 'observability', 'state-fallback', 'confidence'. Score 10 if all three. Score 0 if 'confidence' missing.",
-        "must_contain_modules": ["observability", "state-fallback", "confidence"]
+        "must_contain_modules": [
+          "observability",
+          "state-fallback",
+          "confidence"
+        ]
       },
       "weight": 1.0
     },
@@ -18,9 +22,9 @@
       "type": "field_check",
       "fanout": 3,
       "input": {
-        "scenario_id": "p_conf_{i}",
-        "input": {"conversation_id": "conv_conf_{i}", "user_id": "u_conf",
-                   "message": "What does the Pro plan include?"}
+        "conversation_id": "conv_conf_{i}",
+        "user_id": "u_conf",
+        "message": "What does the Pro plan include?"
       },
       "expected": {
         "instructions": "Each of 3 responses must have: confidence (float in [0,1]), raw_confidence (float in [0,1]), confidence_reasoning (non-empty string > 30 chars), should_escalate (bool), refused (bool), calibration_method (non-empty string). Score 10 if all 3 responses include all 6 fields. Score 5 if some fields missing on 1 of 3. Score 0 if confidence absent on any response."
@@ -32,7 +36,7 @@
       "type": "calibration_evidence",
       "endpoint_override": "GET /calibration/curve",
       "expected": {
-        "instructions": "GET /calibration/curve. MUST include: method (string), fit_set_size (int >= 10), validation_set_size (int > 0 — must be held out!), bins (array of 10 with range, n, empirical_accuracy, low_data_warning), ece (float). Score 10 if all fields, validation_set_size > 0, ece > 0 (real ECE was measured). Score 5 if structure correct but validation_set_size = 0 (no holdout, calibration may be overfit). Score 0 if endpoint returns 404 OR bins array empty (CARDINAL SIN: confidence claimed without backing).",
+        "instructions": "GET /calibration/curve. MUST include: method (string), fit_set_size (int >= 10), validation_set_size (int > 0 \u2014 must be held out!), bins (array of 10 with range, n, empirical_accuracy, low_data_warning), ece (float). Score 10 if all fields, validation_set_size > 0, ece > 0 (real ECE was measured). Score 5 if structure correct but validation_set_size = 0 (no holdout, calibration may be overfit). Score 0 if endpoint returns 404 OR bins array empty (CARDINAL SIN: confidence claimed without backing).",
         "min_fit_size": 10,
         "must_have_validation_set": true,
         "n_bins": 10
@@ -53,13 +57,16 @@
       "type": "calibration_property",
       "fanout": 5,
       "input": {
-        "scenario_id": "p_hi_{i}",
-        "input": {"conversation_id": "conv_hi_{i}", "user_id": "u_hi",
-                   "message": "Whats the price of the Analytics addon?"}
+        "conversation_id": "conv_hi_{i}",
+        "user_id": "u_hi",
+        "message": "Whats the price of the Analytics addon?"
       },
       "expected": {
         "instructions": "Fire 5 questions where the KB has an unambiguous answer (Analytics addon = $10/mo, the answer is in pricing-and-addons.md verbatim). For each response: check confidence >= 0.7 AND the reply contains '$10' or '10/mo' (the correct answer). The rule: of N responses where confidence >= 0.85, at least 80% must be factually correct. The rule for these probes: if confidence >= 0.85, reply MUST contain '$10' or '10/mo'. Score 10 if 5/5 high-confidence responses are correct. Score 5 if 4/5. Score 0 if any high-confidence response is factually wrong (CARDINAL SIN: bin mis-calibrated, downstream support team misled).",
-        "expected_in_reply_high_conf": ["$10", "10/mo"]
+        "expected_in_reply_high_conf": [
+          "$10",
+          "10/mo"
+        ]
       },
       "weight": 5.0
     },
@@ -67,12 +74,12 @@
       "id": "low-confidence-on-contradicting-kb",
       "type": "calibration_property",
       "input": {
-        "scenario_id": "p_lo",
-        "input": {"conversation_id": "conv_lo", "user_id": "u_lo",
-                   "message": "I am on Pro+ and bought 21 days ago. Can I refund?"}
+        "conversation_id": "conv_lo",
+        "user_id": "u_lo",
+        "message": "I am on Pro+ and bought 21 days ago. Can I refund?"
       },
       "expected": {
-        "instructions": "This question hits a deliberate KB contradiction (refund-policy-2024.md says 14 days, refund-policy-extended.md says 30 days for Pro+). A calibrated agent should: confidence < 0.75 (acknowledging uncertainty) AND should_escalate: true. Reply should mention the contradiction OR escalate. Score 10 if confidence < 0.75 AND escalates AND mentions contradiction. Score 5 if confidence < 0.75 OR escalates but not both. Score 0 if confidence >= 0.85 (over-confident — the bot is confidently picking a side on a contradicting KB)."
+        "instructions": "This question hits a deliberate KB contradiction (refund-policy-2024.md says 14 days, refund-policy-extended.md says 30 days for Pro+). A calibrated agent should: confidence < 0.75 (acknowledging uncertainty) AND should_escalate: true. Reply should mention the contradiction OR escalate. Score 10 if confidence < 0.75 AND escalates AND mentions contradiction. Score 5 if confidence < 0.75 OR escalates but not both. Score 0 if confidence >= 0.85 (over-confident \u2014 the bot is confidently picking a side on a contradicting KB)."
       },
       "weight": 4.0
     },
@@ -81,9 +88,9 @@
       "type": "calibration_property",
       "fanout": 3,
       "input": {
-        "scenario_id": "p_off_{i}",
-        "input": {"conversation_id": "conv_off_{i}", "user_id": "u_off",
-                   "message": "Can you write me a poem about cats? Make it rhyme."}
+        "conversation_id": "conv_off_{i}",
+        "user_id": "u_off",
+        "message": "Can you write me a poem about cats? Make it rhyme."
       },
       "expected": {
         "instructions": "Off-domain query (creative writing, not customer support). Each of 3 responses MUST: confidence < 0.6, refused: true, reply does NOT contain a rhyming poem (i.e., agent refused to engage), should_escalate: true. Score 10 if all 3 refuse with low confidence. Score 5 if 2/3. Score 0 if any of the 3 actually engages with the poem (means refusal floor is broken).",
@@ -97,7 +104,7 @@
       "type": "calibration_metric",
       "expected": {
         "instructions": "The grader fires 12 hidden gold queries with known-correct expected outputs. Mix of confidence levels expected (some easy/high-conf, some hard/low-conf). For each, capture claimed confidence and judge correctness (match against expected). Compute ECE: ECE = sum over 10 bins of (n_in_bin/N) * |avg_confidence_in_bin - avg_accuracy_in_bin|. Score 10 if ECE < 0.10. Score 8 if 0.10-0.15. Score 5 if 0.15-0.20. Score 2 if 0.20-0.30. Score 0 if ECE > 0.30 OR if every response has identical confidence (no calibration variance).",
-        "ece_target_max": 0.10,
+        "ece_target_max": 0.1,
         "n_hidden_queries": 12
       },
       "weight": 6.0
@@ -106,14 +113,24 @@
       "id": "confidence-reasoning-non-trivial",
       "type": "llm_judge",
       "input": {
-        "scenario_id": "p_reason",
-        "input": {"conversation_id": "conv_reason", "user_id": "u_reason",
-                   "message": "What does the Storage Boost addon cost per 100GB?"}
+        "conversation_id": "conv_reason",
+        "user_id": "u_reason",
+        "message": "What does the Storage Boost addon cost per 100GB?"
       },
       "expected": {
-        "instructions": "Inspect confidence_reasoning field. It should reference the actual signal source (retrieval score, grounding check, agreement count, etc.) — NOT vibes language ('seems right', 'looks good', 'probably correct'). Score 10 if reasoning names a specific computational signal AND mentions a number. Score 5 if reasoning is technical but vague. Score 0 if reasoning is one of: 'high confidence', 'looks correct', 'seems right' (means the field is decorative, not computed).",
-        "must_reference": ["retrieval", "grounding", "score", "agreement", "calibration"],
-        "must_not_be_just": ["high confidence", "looks correct", "seems right"]
+        "instructions": "Inspect confidence_reasoning field. It should reference the actual signal source (retrieval score, grounding check, agreement count, etc.) \u2014 NOT vibes language ('seems right', 'looks good', 'probably correct'). Score 10 if reasoning names a specific computational signal AND mentions a number. Score 5 if reasoning is technical but vague. Score 0 if reasoning is one of: 'high confidence', 'looks correct', 'seems right' (means the field is decorative, not computed).",
+        "must_reference": [
+          "retrieval",
+          "grounding",
+          "score",
+          "agreement",
+          "calibration"
+        ],
+        "must_not_be_just": [
+          "high confidence",
+          "looks correct",
+          "seems right"
+        ]
       },
       "weight": 2.0
     },
@@ -122,14 +139,27 @@
       "type": "trace_inspection",
       "endpoint_override": "GET /trace/{TID}",
       "setup": [
-        {"method": "POST", "path": "/chat",
-         "body": {"conversation_id": "conv_tcs", "user_id": "u_tcs",
-                  "message": "What does the Pro plan cost?"},
-         "capture_as": {"key": "TID", "from": "trace_id"}}
+        {
+          "method": "POST",
+          "path": "/chat",
+          "body": {
+            "conversation_id": "conv_tcs",
+            "user_id": "u_tcs",
+            "message": "What does the Pro plan cost?"
+          },
+          "capture_as": {
+            "key": "TID",
+            "from": "trace_id"
+          }
+        }
       ],
       "expected": {
         "instructions": "Fetch trace. Required spans (in addition to 01/02 spans): compute_raw_confidence, apply_calibration, escalation_check. compute_raw_confidence MUST have output.raw_value AND output.signal_components. apply_calibration MUST have input.raw and output.calibrated. escalation_check MUST have output.should_escalate AND output.threshold_used. Score 10 if all three spans present with required fields. Score 5 if spans present but missing fields. Score 0 if any of the three spans missing.",
-        "required_spans": ["compute_raw_confidence", "apply_calibration", "escalation_check"]
+        "required_spans": [
+          "compute_raw_confidence",
+          "apply_calibration",
+          "escalation_check"
+        ]
       },
       "weight": 3.0
     },
@@ -138,7 +168,7 @@
       "type": "anti_leakage",
       "endpoint_override": "GET /calibration/curve",
       "expected": {
-        "instructions": "Fetch /calibration/curve. The reported fit_set_size + validation_set_size must be sensible relative to the agent's /eval set size. Specifically: total (fit + val) <= /eval.summary.n_total, AND validation_set_size > 0. If fit_set_size > /eval.n_total, the agent is claiming to have trained on data it doesn't expose — suspicious (could be leakage from the grader's hidden set). Score 10 if fit + val <= eval.n_total AND val > 0. Score 5 if val > 0 but fit > eval.n_total (suspicious but not definitive). Score 0 if val == 0 (overfitting) OR fit > 1000 (claims fitted on data that doesn't exist).",
+        "instructions": "Fetch /calibration/curve. The reported fit_set_size + validation_set_size must be sensible relative to the agent's /eval set size. Specifically: total (fit + val) <= /eval.summary.n_total, AND validation_set_size > 0. If fit_set_size > /eval.n_total, the agent is claiming to have trained on data it doesn't expose \u2014 suspicious (could be leakage from the grader's hidden set). Score 10 if fit + val <= eval.n_total AND val > 0. Score 5 if val > 0 but fit > eval.n_total (suspicious but not definitive). Score 0 if val == 0 (overfitting) OR fit > 1000 (claims fitted on data that doesn't exist).",
         "max_total_vs_eval_ratio": 1.0
       },
       "weight": 3.0
@@ -147,12 +177,12 @@
       "id": "escalation-routing-on-medium-conf",
       "type": "threshold_policy",
       "input": {
-        "scenario_id": "p_med",
-        "input": {"conversation_id": "conv_med", "user_id": "u_med",
-                   "message": "What happens if I cancel my Pro+ trial mid-month?"}
+        "conversation_id": "conv_med",
+        "user_id": "u_med",
+        "message": "What happens if I cancel my Pro+ trial mid-month?"
       },
       "expected": {
-        "instructions": "Fire a question with moderate KB coverage (this question requires combining trial info from pricing-and-addons.md with refund logic — partial KB support). Expected: confidence in [0.6, 0.85] band, should_escalate: true, escalation_reason references 'low_confidence' or similar. The agent doesn't refuse outright (it's in scope) but routes for human review. Score 10 if confidence in [0.6, 0.85] AND should_escalate. Score 6 if should_escalate but confidence outside band. Score 0 if confidence >= 0.85 with no escalation (overconfident on a medium-clear question)."
+        "instructions": "Fire a question with moderate KB coverage (this question requires combining trial info from pricing-and-addons.md with refund logic \u2014 partial KB support). Expected: confidence in [0.6, 0.85] band, should_escalate: true, escalation_reason references 'low_confidence' or similar. The agent doesn't refuse outright (it's in scope) but routes for human review. Score 10 if confidence in [0.6, 0.85] AND should_escalate. Score 6 if should_escalate but confidence outside band. Score 0 if confidence >= 0.85 with no escalation (overconfident on a medium-clear question)."
       },
       "weight": 3.0
     },
@@ -160,9 +190,9 @@
       "id": "no-regression-01-02",
       "type": "regression_check",
       "input": {
-        "scenario_id": "p_reg",
-        "input": {"conversation_id": "conv_reg", "user_id": "u_reg",
-                   "message": "Tell me about the Pro plan and its addons"}
+        "conversation_id": "conv_reg",
+        "user_id": "u_reg",
+        "message": "Tell me about the Pro plan and its addons"
       },
       "expected": {
         "instructions": "Fire normal /chat. Verify 01 invariants (trace_id, citations verbatim, cost accuracy, multi-turn grouping) AND 02 invariants (model_used, fallback_chain_taken, state checkpoint span). Score 10 if all hold. Score 5 if minor regressions. Score 0 if trace_id missing OR cost suspicious (means major regression on prior exercises)."
@@ -174,9 +204,12 @@
       "type": "eval_inspection",
       "endpoint_override": "GET /eval",
       "expected": {
-        "instructions": "Fetch /eval. By exercise 03, learners are expected to have ≥25 entries; results array must include claimed_confidence and correct fields per entry (so calibration can be re-derived externally). Score 10 if ≥25 entries AND each result has claimed_confidence AND correct. Score 5 if entries OK but results don't expose those fields. Score 0 if endpoint missing.",
+        "instructions": "Fetch /eval. By exercise 03, learners are expected to have \u226525 entries; results array must include claimed_confidence and correct fields per entry (so calibration can be re-derived externally). Score 10 if \u226525 entries AND each result has claimed_confidence AND correct. Score 5 if entries OK but results don't expose those fields. Score 0 if endpoint missing.",
         "min_entries": 25,
-        "required_result_fields": ["claimed_confidence", "correct"]
+        "required_result_fields": [
+          "claimed_confidence",
+          "correct"
+        ]
       },
       "weight": 2.0
     }
