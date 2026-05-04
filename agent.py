@@ -35,10 +35,13 @@ from pathlib import Path
 
 import anthropic
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 app = FastAPI()
 KB_DIR = Path(__file__).parent / "kb"
+STATIC_DIR = Path(__file__).parent / "static"
+INDEX_HTML = (STATIC_DIR / "index.html").read_text() if (STATIC_DIR / "index.html").exists() else ""
 
 # ---------- KB load -------------------------------------------------------
 
@@ -151,17 +154,32 @@ class ChatIn(BaseModel):
     message: str
 
 
-@app.get("/")
-def index():
-    """Friendly landing payload. The previous demo returned FastAPI's default 404
-    for `GET /`, which read like a broken agent on first browse. Real production
-    agents tend to redirect / to docs or serve a status page; this demo keeps it
-    minimal but makes the available endpoints discoverable."""
+@app.get("/", response_class=HTMLResponse)
+def index_html():
+    """Browser-friendly chat UI. A learner who runs `make run` and opens
+    http://localhost:8000 in a browser gets a working chatbot — no curl
+    required to verify the agent is up. The HTML+JS+CSS lives at
+    static/index.html (~150 lines, no external deps)."""
+    if not INDEX_HTML:
+        # The static file went missing — degrade gracefully to JSON help.
+        return HTMLResponse(
+            "<h1>cs-demo-agent</h1><p>static/index.html missing. "
+            "Try <code>GET /info</code> or <code>POST /chat</code> directly.</p>",
+            status_code=200,
+        )
+    return HTMLResponse(INDEX_HTML)
+
+
+@app.get("/info")
+def info():
+    """Programmatic landing endpoint — the JSON shape the previous demo served at /.
+    Kept for scripts and curl-based smoke tests."""
     return {
         "agent": "cs-demo-agent (demo/customer-support-agent)",
         "build": "demo-v1",
         "endpoints": {
-            "GET /": "this help payload",
+            "GET /": "browser chat UI (HTML)",
+            "GET /info": "this payload",
             "GET /health": "readiness probe",
             "POST /chat": "send a customer message; receive a reply",
         },

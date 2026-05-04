@@ -41,7 +41,9 @@ export ANTHROPIC_API_KEY=sk-ant-...
 make run                                   # or: uv run python agent.py
 ```
 
-`make smoke` will run the agent, hit `/health` and `/chat` once, print results, and tear down — useful for verifying setup in 30 seconds.
+**Now open [http://localhost:8000](http://localhost:8000) in a browser.** You'll get a minimal chatbot UI — type a customer-support question, hit Enter, see the reply with token / cost / latency metadata. No curl required to verify the agent is alive.
+
+`make smoke` runs the agent, hits `/health` + `/chat` once, prints results, and tears down — useful as an offline sanity check.
 
 ## Run it (fallback: stdlib venv + pip)
 
@@ -60,7 +62,7 @@ The deps will resolve from `pyproject.toml`. You won't get `uv.lock` reproducibi
 
 ## Talk to it
 
-In another terminal:
+The chat UI at [http://localhost:8000](http://localhost:8000) is the easy path. If you want to see the raw `/chat` JSON contract (which the exercises grade against), curl it directly:
 
 ```bash
 curl -X POST http://localhost:8000/chat \
@@ -71,6 +73,10 @@ curl -X POST http://localhost:8000/chat \
     "message": "Hi, my invoice was $89 but the Pro plan is $79. What gives?"
   }'
 ```
+
+Other endpoints:
+- `GET /health` — readiness probe
+- `GET /info` — JSON listing of endpoints (programmatic equivalent of the chat UI's landing page)
 
 You'll get a reply that cites the Analytics add-on. The agent works. Try a few more turns on the same `conversation_id` — it remembers context.
 
