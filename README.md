@@ -68,7 +68,7 @@ cd cs-demo-agent-to-production
 git checkout tour/from-demo-to-production    # 30-min orientation
 cat EXERCISE.md
 git checkout demo/customer-support-agent     # the inherited demo
-cat README.md && python agent.py             # run it
+uv sync && make run                          # then open http://localhost:8000
 ```
 
 Then `exercise/01-observability` and onward.
