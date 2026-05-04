@@ -151,6 +151,31 @@ class ChatIn(BaseModel):
     message: str
 
 
+@app.get("/")
+def index():
+    """Friendly landing payload. The previous demo returned FastAPI's default 404
+    for `GET /`, which read like a broken agent on first browse. Real production
+    agents tend to redirect / to docs or serve a status page; this demo keeps it
+    minimal but makes the available endpoints discoverable."""
+    return {
+        "agent": "cs-demo-agent (demo/customer-support-agent)",
+        "build": "demo-v1",
+        "endpoints": {
+            "GET /": "this help payload",
+            "GET /health": "readiness probe",
+            "POST /chat": "send a customer message; receive a reply",
+        },
+        "try": (
+            "curl -X POST http://localhost:8000/chat "
+            "-H 'Content-Type: application/json' "
+            "-d '{\"conversation_id\":\"c1\",\"user_id\":\"u1\","
+            "\"message\":\"What does the Analytics addon cost?\"}'"
+        ),
+        "kb_docs_loaded": len(KB),
+        "modules_active": [],
+    }
+
+
 @app.get("/health")
 def health():
     return {"ok": True, "build": "demo-v1", "model": MODEL, "modules_active": []}
