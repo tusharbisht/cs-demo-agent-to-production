@@ -1,7 +1,7 @@
 {
   "branch": "exercise/02-state-and-fallback",
   "endpoint": "POST /chat",
-  "manager_persona": "Engineering Manager — AI Platform. After exercise 01 they got their traces. Now they want survivability. Has lived through (a) a worker restart that vanished 47 active conversations and produced an angry customer-success thread, (b) an Anthropic regional outage that took the agent down for 2 hours because no fallback was wired. Cardinal sins: (a) state lost on restart, (b) primary 429 propagating as 5xx to the user, (c) unbounded conversation that crashes context window, (d) a 'fallback' that's actually just a retry on the same model. Voice: tactical, references real incidents, asks for trace evidence on every fallback claim.",
+  "manager_persona": "Engineering Manager \u2014 AI Platform. After exercise 01 they got their traces. Now they want survivability. Has lived through (a) a worker restart that vanished 47 active conversations and produced an angry customer-success thread, (b) an Anthropic regional outage that took the agent down for 2 hours because no fallback was wired. Cardinal sins: (a) state lost on restart, (b) primary 429 propagating as 5xx to the user, (c) unbounded conversation that crashes context window, (d) a 'fallback' that's actually just a retry on the same model. Voice: tactical, references real incidents, asks for trace evidence on every fallback claim.",
   "tests": [
     {
       "id": "health",
@@ -9,7 +9,10 @@
       "endpoint_override": "GET /health",
       "expected": {
         "instructions": "/health returns 200. modules_active includes both 'observability' AND 'state-fallback'. Score 10 if both modules listed. Score 0 if state-fallback missing (means agent didn't even claim to implement this exercise).",
-        "must_contain_modules": ["observability", "state-fallback"]
+        "must_contain_modules": [
+          "observability",
+          "state-fallback"
+        ]
       },
       "weight": 1.0
     },
@@ -17,8 +20,12 @@
       "id": "durable-state-across-restart",
       "type": "durability",
       "expected": {
-        "instructions": "Multi-step probe. (1) POST /chat conv_id=conv_dur turn 1: 'Hi I am on Pro+'. (2) POST /chat conv_id=conv_dur turn 2: 'Whats the refund window for me?'. (3) Force a worker restart (the LMS judge sends an admin signal or briefly cycles the container; for this graded probe we simulate via a 30s gap and a separate health check). (4) After restart, POST /chat conv_id=conv_dur turn 3: 'I bought 21 days ago. Can I refund?'. The turn 3 reply MUST reference Pro+ context from turn 1 AND apply the Pro+ refund window from turn 2. ALSO call GET /state/conv_dur — turn_count >= 3, messages array contains all turns. Score 10 if context preserved AND state endpoint returns full history. Score 5 if state endpoint shows history but turn 3 reply ignores prior context. Score 0 if state was lost (CARDINAL SIN).",
-        "checks": ["pro_plus_referenced_in_turn3", "refund_window_applied", "state_endpoint_shows_history"]
+        "instructions": "Multi-step probe. (1) POST /chat conv_id=conv_dur turn 1: 'Hi I am on Pro+'. (2) POST /chat conv_id=conv_dur turn 2: 'Whats the refund window for me?'. (3) Force a worker restart (the LMS judge sends an admin signal or briefly cycles the container; for this graded probe we simulate via a 30s gap and a separate health check). (4) After restart, POST /chat conv_id=conv_dur turn 3: 'I bought 21 days ago. Can I refund?'. The turn 3 reply MUST reference Pro+ context from turn 1 AND apply the Pro+ refund window from turn 2. ALSO call GET /state/conv_dur \u2014 turn_count >= 3, messages array contains all turns. Score 10 if context preserved AND state endpoint returns full history. Score 5 if state endpoint shows history but turn 3 reply ignores prior context. Score 0 if state was lost (CARDINAL SIN).",
+        "checks": [
+          "pro_plus_referenced_in_turn3",
+          "refund_window_applied",
+          "state_endpoint_shows_history"
+        ]
       },
       "weight": 5.0
     },
@@ -36,15 +43,20 @@
       "id": "primary-429-falls-through",
       "type": "fallback_chain",
       "input": {
-        "scenario_id": "p_fb_429",
-        "input": {"conversation_id": "conv_fb429", "user_id": "u_fb429",
-                   "message": "What does the Analytics addon include?"}
+        "conversation_id": "conv_fb429",
+        "user_id": "u_fb429",
+        "message": "What does the Analytics addon include?"
       },
       "expected": {
         "instructions": "Fire /chat with header X-Test-Force-Primary-429: 1. The response MUST: (a) status 200 (not 5xx), (b) fallback_chain_taken: true, (c) fallback_reason includes '429' or 'primary', (d) model_used is NOT the primary model name. Then fetch the trace: MUST contain attempt_primary span with error indication, AND attempt_secondary span that succeeded. Score 10 if all conditions. Score 5 if status 200 but fallback_chain_taken: false (means fallback didn't fire). Score 0 if status >= 500 (CARDINAL SIN: 429 propagated as 5xx).",
         "expected_status": 200,
-        "expected_fields": {"fallback_chain_taken": true},
-        "required_spans": ["attempt_primary", "attempt_secondary"]
+        "expected_fields": {
+          "fallback_chain_taken": true
+        },
+        "required_spans": [
+          "attempt_primary",
+          "attempt_secondary"
+        ]
       },
       "weight": 6.0
     },
@@ -52,12 +64,12 @@
       "id": "primary-timeout-falls-through",
       "type": "fallback_chain",
       "input": {
-        "scenario_id": "p_fb_timeout",
-        "input": {"conversation_id": "conv_fbto", "user_id": "u_fbto",
-                   "message": "Tell me about Pro vs Pro+ plans"}
+        "conversation_id": "conv_fbto",
+        "user_id": "u_fbto",
+        "message": "Tell me about Pro vs Pro+ plans"
       },
       "expected": {
-        "instructions": "Fire /chat with header X-Test-Force-Primary-Timeout: 1. Same checks as primary-429 but fallback_reason should reference 'timeout'. The total request latency must be bounded (≤ 12s including the timeout). Score 10 if fallback fired AND total_latency ≤ 12s. Score 5 if fallback fired but latency > 12s. Score 0 if status >= 500 OR fallback didn't fire.",
+        "instructions": "Fire /chat with header X-Test-Force-Primary-Timeout: 1. Same checks as primary-429 but fallback_reason should reference 'timeout'. The total request latency must be bounded (\u2264 12s including the timeout). Score 10 if fallback fired AND total_latency \u2264 12s. Score 5 if fallback fired but latency > 12s. Score 0 if status >= 500 OR fallback didn't fire.",
         "expected_status": 200,
         "max_total_latency_ms": 12000
       },
@@ -67,14 +79,18 @@
       "id": "all-tiers-fail-graceful-503",
       "type": "graceful_degradation",
       "input": {
-        "scenario_id": "p_503",
-        "input": {"conversation_id": "conv_503", "user_id": "u_503",
-                   "message": "any question"}
+        "conversation_id": "conv_503",
+        "user_id": "u_503",
+        "message": "any question"
       },
       "expected": {
         "instructions": "Fire /chat with header X-Test-Force-All-Fail: 1. Expected: HTTP status 503 (NOT 500). Body MUST include: degraded: true, fallback_chain_taken: true, fallback_reason: 'all_tiers_failed' (or similar), reply (a polite human-routing message), trace_id (tracing didn't disappear). Score 10 if all conditions. Score 6 if status 503 but missing degraded/reason fields. Score 3 if status 200 with template reply (acceptable but not the explicit-degraded signal). Score 0 if status 500 (panic, not graceful).",
         "expected_status": 503,
-        "required_fields": ["degraded", "trace_id", "reply"]
+        "required_fields": [
+          "degraded",
+          "trace_id",
+          "reply"
+        ]
       },
       "weight": 4.0
     },
@@ -82,12 +98,12 @@
       "id": "tool-timeout-graceful",
       "type": "tool_timeout",
       "input": {
-        "scenario_id": "p_to",
-        "input": {"conversation_id": "conv_to", "user_id": "u_to",
-                   "message": "Whats your refund policy?"}
+        "conversation_id": "conv_to",
+        "user_id": "u_to",
+        "message": "Whats your refund policy?"
       },
       "expected": {
-        "instructions": "Fire /chat with header X-Test-Slow-Kb-Ms: 6000. The agent's tool-call timeout (default 5s) should trip. Total request latency MUST be ≤ 8s (5s tool timeout + ~3s LLM). Trace MUST show retrieve_kb span with error containing 'timeout' OR duration_ms ≈ 5000±500. Reply must NOT fabricate a refund-policy answer (since retrieval failed) — should either ask for clarification OR explicitly note it can't pull docs right now. Score 10 if all conditions. Score 5 if timeout enforced but reply fabricates. Score 0 if request hangs > 10s.",
+        "instructions": "Fire /chat with header X-Test-Slow-Kb-Ms: 6000. The agent's tool-call timeout (default 5s) should trip. Total request latency MUST be \u2264 8s (5s tool timeout + ~3s LLM). Trace MUST show retrieve_kb span with error containing 'timeout' OR duration_ms \u2248 5000\u00b1500. Reply must NOT fabricate a refund-policy answer (since retrieval failed) \u2014 should either ask for clarification OR explicitly note it can't pull docs right now. Score 10 if all conditions. Score 5 if timeout enforced but reply fabricates. Score 0 if request hangs > 10s.",
         "max_total_latency_ms": 8000,
         "required_span_field": "retrieve_kb.error or duration_ms ~ 5000"
       },
@@ -97,13 +113,13 @@
       "id": "streaming",
       "type": "streaming",
       "input": {
-        "scenario_id": "p_stream",
-        "input": {"conversation_id": "conv_s", "user_id": "u_s",
-                   "message": "Tell me about the Pro plan in 3 sentences",
-                   "stream": true}
+        "conversation_id": "conv_s",
+        "user_id": "u_s",
+        "message": "Tell me about the Pro plan in 3 sentences",
+        "stream": true
       },
       "expected": {
-        "instructions": "Fire /chat with body field stream:true. Expected Content-Type: text/event-stream. The response should produce ≥2 SSE 'data:' chunks before a final chunk with done:true (or equivalent). The grader counts chunks. Score 10 if ≥2 chunks AND final chunk has trace_id + totals. Score 6 if exactly 1 chunk (means the service buffered — minor issue but functional). Score 0 if no SSE at all (Content-Type wrong) or hangs.",
+        "instructions": "Fire /chat with body field stream:true. Expected Content-Type: text/event-stream. The response should produce \u22652 SSE 'data:' chunks before a final chunk with done:true (or equivalent). The grader counts chunks. Score 10 if \u22652 chunks AND final chunk has trace_id + totals. Score 6 if exactly 1 chunk (means the service buffered \u2014 minor issue but functional). Score 0 if no SSE at all (Content-Type wrong) or hangs.",
         "min_chunks": 2,
         "expected_content_type_prefix": "text/event-stream"
       },
@@ -113,9 +129,9 @@
       "id": "fallback-still-traced",
       "type": "trace_continuity",
       "input": {
-        "scenario_id": "p_fbtrace",
-        "input": {"conversation_id": "conv_fbtrace", "user_id": "u_fbtr",
-                   "message": "What does the Analytics addon include?"}
+        "conversation_id": "conv_fbtrace",
+        "user_id": "u_fbtr",
+        "message": "What does the Analytics addon include?"
       },
       "expected": {
         "instructions": "Fire /chat with X-Test-Force-Primary-429: 1, capture trace_id, fetch the trace. MUST include: (a) attempt_primary span (showing error/429), (b) attempt_secondary span (the success), (c) all the standard observability axes from exercise 01 (tokens, cost, latency, model). Score 10 if all spans present. Score 5 if traces exist but missing one of the attempt spans. Score 0 if fallback execution isn't traced at all (regression on observability)."
@@ -126,8 +142,13 @@
       "id": "state-endpoint-coherent",
       "type": "state_inspection",
       "expected": {
-        "instructions": "Fire 4 /chat turns on conv_state. Then GET /state/conv_state. Response MUST contain: messages (array of length 8 = 4 user + 4 assistant), turn_count >= 4, conversation_id matching, last_updated_at recent. Score 10 if all fields. Score 5 if endpoint returns valid JSON but missing fields. Score 0 if endpoint returns 404 (means no introspection — durability cannot be tested).",
-        "required_fields": ["messages", "turn_count", "conversation_id", "last_updated_at"],
+        "instructions": "Fire 4 /chat turns on conv_state. Then GET /state/conv_state. Response MUST contain: messages (array of length 8 = 4 user + 4 assistant), turn_count >= 4, conversation_id matching, last_updated_at recent. Score 10 if all fields. Score 5 if endpoint returns valid JSON but missing fields. Score 0 if endpoint returns 404 (means no introspection \u2014 durability cannot be tested).",
+        "required_fields": [
+          "messages",
+          "turn_count",
+          "conversation_id",
+          "last_updated_at"
+        ],
         "min_turn_count": 4
       },
       "weight": 2.0
@@ -136,12 +157,12 @@
       "id": "cost-bounded-on-fallback",
       "type": "cost_discipline",
       "input": {
-        "scenario_id": "p_fbcost",
-        "input": {"conversation_id": "conv_fbcost", "user_id": "u_fbcost",
-                   "message": "What addons can I add to Pro?"}
+        "conversation_id": "conv_fbcost",
+        "user_id": "u_fbcost",
+        "message": "What addons can I add to Pro?"
       },
       "expected": {
-        "instructions": "Fire /chat with X-Test-Force-Primary-429:1 and check cost_usd in response. Expected: cost_usd ≤ $0.06 (allows for primary attempt + secondary, both counted). The trace's primary attempt span will likely show 0 tokens (since it was forced 429); the secondary's tokens count toward the bill. Compare to a non-forced /chat — fallback cost should be at most 1.5× the normal cost. Score 10 if cost_usd ≤ $0.06. Score 5 if ≤ $0.10. Score 0 if > $0.15 (fallback chain is wasting money).",
+        "instructions": "Fire /chat with X-Test-Force-Primary-429:1 and check cost_usd in response. Expected: cost_usd \u2264 $0.06 (allows for primary attempt + secondary, both counted). The trace's primary attempt span will likely show 0 tokens (since it was forced 429); the secondary's tokens count toward the bill. Compare to a non-forced /chat \u2014 fallback cost should be at most 1.5\u00d7 the normal cost. Score 10 if cost_usd \u2264 $0.06. Score 5 if \u2264 $0.10. Score 0 if > $0.15 (fallback chain is wasting money).",
         "max_cost_usd": 0.06
       },
       "weight": 2.0
@@ -150,9 +171,9 @@
       "id": "no-regression-on-01",
       "type": "regression_check",
       "input": {
-        "scenario_id": "p_reg",
-        "input": {"conversation_id": "conv_reg", "user_id": "u_reg",
-                   "message": "Whats included in the Pro plan and addons"}
+        "conversation_id": "conv_reg",
+        "user_id": "u_reg",
+        "message": "Whats included in the Pro plan and addons"
       },
       "expected": {
         "instructions": "Fire a normal /chat (no test headers). Verify: trace_id present, citations array populated with verbatim quotes, tokens/cost reported, latency reported. This re-checks that exercise 01's observability axes still pass after the state+fallback rework. Score 10 if all 01 invariants hold. Score 5 if minor regressions (e.g., cost variance suspiciously low). Score 0 if trace_id absent OR citations broken (means the rework regressed on 01)."
@@ -164,9 +185,13 @@
       "type": "eval_inspection",
       "endpoint_override": "GET /eval",
       "expected": {
-        "instructions": "Fetch /eval. Should now have ≥18 entries (learners are expected to extend beyond the demo's 12). Tags should include happy_path, must_escalate, edge_case at minimum. avg_score in [0.5, 0.95]. Score 10 if ≥18 entries with required tags. Score 5 if 12-17. Score 0 if endpoint absent.",
+        "instructions": "Fetch /eval. Should now have \u226518 entries (learners are expected to extend beyond the demo's 12). Tags should include happy_path, must_escalate, edge_case at minimum. avg_score in [0.5, 0.95]. Score 10 if \u226518 entries with required tags. Score 5 if 12-17. Score 0 if endpoint absent.",
         "min_entries": 18,
-        "required_tags": ["happy_path", "must_escalate", "edge_case"]
+        "required_tags": [
+          "happy_path",
+          "must_escalate",
+          "edge_case"
+        ]
       },
       "weight": 2.0
     }
