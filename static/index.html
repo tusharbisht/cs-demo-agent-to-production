@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>cs-demo-agent</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      color: #0f172a; background: #f8fafc;
+      display: flex; flex-direction: column;
+    }
+    header {
+      padding: 12px 20px; border-bottom: 1px solid #e2e8f0; background: #fff;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    }
+    header .left .title { font-weight: 600; }
+    header .left .subtitle { font-size: 12px; color: #64748b; font-family: ui-monospace, "SF Mono", monospace; margin-top: 2px; }
+    header .right { display: flex; align-items: center; gap: 12px; font-size: 12px; color: #64748b; }
+    header .right .conv { font-family: ui-monospace, monospace; }
+    header a { color: #2563eb; text-decoration: none; }
+    header a:hover { text-decoration: underline; }
+    main { flex: 1; overflow-y: auto; padding: 20px; }
+    .transcript { max-width: 760px; margin: 0 auto; width: 100%; }
+    .msg { margin-bottom: 14px; }
+    .msg .role { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 4px; font-weight: 600; }
+    .msg.user .role { color: #2563eb; }
+    .msg.system .role { color: #ca8a04; }
+    .msg .body {
+      background: #fff; padding: 12px 14px; border: 1px solid #e2e8f0;
+      border-radius: 8px; white-space: pre-wrap; word-wrap: break-word;
+    }
+    .msg.user .body { background: #eff6ff; border-color: #bfdbfe; }
+    .msg.system .body { background: #fefce8; border-color: #fde68a; color: #713f12; font-size: 13px; }
+    .msg .meta { font-size: 11px; color: #94a3b8; margin-top: 6px; font-family: ui-monospace, monospace; }
+    .msg.error .body { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+    .msg.loading .body { color: #94a3b8; font-style: italic; }
+    .msg.loading .body::after {
+      content: "▌"; animation: blink 1s steps(2) infinite; margin-left: 2px;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+    footer {
+      padding: 14px 20px; border-top: 1px solid #e2e8f0; background: #fff;
+    }
+    .input-row {
+      max-width: 760px; margin: 0 auto; display: flex; gap: 8px;
+    }
+    textarea {
+      flex: 1; resize: none; border: 1px solid #cbd5e1; border-radius: 8px;
+      padding: 10px 14px; font: inherit; line-height: 1.5; min-height: 40px; max-height: 140px;
+      outline: none; transition: border-color .15s;
+    }
+    textarea:focus { border-color: #2563eb; }
+    button {
+      padding: 0 18px; background: #0f172a; color: #fff; border: 0; border-radius: 8px;
+      font: inherit; font-weight: 500; cursor: pointer; transition: background .15s;
+    }
+    button:hover:not(:disabled) { background: #334155; }
+    button:disabled { background: #cbd5e1; cursor: not-allowed; }
+    .reset-btn {
+      padding: 4px 10px; font-size: 12px; background: #fff; color: #64748b;
+      border: 1px solid #cbd5e1; border-radius: 6px;
+    }
+    .reset-btn:hover:not(:disabled) { background: #f1f5f9; color: #0f172a; }
+    .hint { color: #94a3b8; font-size: 11px; max-width: 760px; margin: 6px auto 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="left">
+      <div class="title">cs-demo-agent</div>
+      <div class="subtitle">demo/customer-support-agent</div>
+    </div>
+    <div class="right">
+      <span class="conv" id="conv-id">conv: …</span>
+      <button class="reset-btn" type="button" id="reset-btn">New chat</button>
+    </div>
+  </header>
+  <main>
+    <div class="transcript" id="transcript">
+      <div class="msg system">
+        <div class="role">welcome</div>
+        <div class="body">Customer-support agent demo. Try one of:
+• "What does the Analytics addon cost?"
+• "I bought 21 days ago on Pro+, can I refund?"
+• "I think my account was hacked"
+
+The replies should cite a KB doc. The agent has known production-grade gaps (no traces, no fallback, no calibration, no feedback loop) — those are the assignments in this course.</div>
+      </div>
+    </div>
+  </main>
+  <footer>
+    <div class="input-row">
+      <textarea id="msg" placeholder="Ask a customer-support question…" rows="1"></textarea>
+      <button type="button" id="send-btn">Send</button>
+    </div>
+    <div class="hint">Enter to send, Shift+Enter for newline. The conv id is preserved so the agent has multi-turn memory until you click "New chat".</div>
+  </footer>
+  <script>
+    (() => {
+      const STORE = "cs-demo-conv-id";
+      const transcript = document.getElementById("transcript");
+      const input = document.getElementById("msg");
+      const sendBtn = document.getElementById("send-btn");
+      const resetBtn = document.getElementById("reset-btn");
+      const convLabel = document.getElementById("conv-id");
+
+      function newConvId() { return "c_" + Math.random().toString(36).slice(2, 10); }
+      let convId = localStorage.getItem(STORE) || newConvId();
+      localStorage.setItem(STORE, convId);
+      convLabel.textContent = "conv: " + convId;
+
+      function autosize() {
+        input.style.height = "auto";
+        input.style.height = Math.min(input.scrollHeight, 140) + "px";
+      }
+      input.addEventListener("input", autosize);
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+      });
+      sendBtn.addEventListener("click", send);
+      resetBtn.addEventListener("click", resetConv);
+
+      function append(role, body, opts) {
+        opts = opts || {};
+        const m = document.createElement("div");
+        m.className = "msg " + role;
+        if (opts.loading) m.classList.add("loading");
+        if (opts.error) m.classList.add("error");
+        const r = document.createElement("div");
+        r.className = "role";
+        r.textContent = opts.label || (role === "user" ? "you" : role === "assistant" ? "assistant" : role);
+        const b = document.createElement("div");
+        b.className = "body";
+        b.textContent = body;
+        m.appendChild(r); m.appendChild(b);
+        transcript.appendChild(m);
+        m.scrollIntoView({behavior: "smooth", block: "end"});
+        return m;
+      }
+
+      function setMeta(node, parts) {
+        if (!parts || !parts.length) return;
+        const f = document.createElement("div");
+        f.className = "meta";
+        f.textContent = parts.filter(Boolean).join("  ·  ");
+        node.appendChild(f);
+      }
+
+      function metaFromResponse(d) {
+        const out = [];
+        if (d.trace_id) out.push("trace: " + d.trace_id);
+        if (d.tokens_in != null && d.tokens_out != null) out.push(d.tokens_in + "→" + d.tokens_out + " tok");
+        if (typeof d.cost_usd === "number") out.push("$" + d.cost_usd.toFixed(4));
+        if (typeof d.latency_ms === "number") out.push(d.latency_ms + "ms");
+        if (d.confidence != null) out.push("conf " + Number(d.confidence).toFixed(2));
+        if (d.fallback_chain_taken) out.push("fallback: " + (d.fallback_reason || "yes"));
+        return out;
+      }
+
+      async function send() {
+        const text = input.value.trim();
+        if (!text) return;
+        input.value = "";
+        autosize();
+        sendBtn.disabled = true;
+        resetBtn.disabled = true;
+
+        append("user", text);
+        const placeholder = append("assistant", "thinking", {loading: true});
+
+        try {
+          const r = await fetch("/chat", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+              conversation_id: convId,
+              user_id: "web-ui",
+              message: text,
+            }),
+          });
+          if (!r.ok) {
+            const txt = await r.text().catch(() => "");
+            placeholder.classList.remove("loading");
+            placeholder.classList.add("error");
+            placeholder.querySelector(".body").textContent =
+              "HTTP " + r.status + (txt ? "\n\n" + txt : "");
+            return;
+          }
+          const data = await r.json();
+          placeholder.classList.remove("loading");
+          placeholder.querySelector(".body").textContent = data.reply || "(empty reply)";
+          setMeta(placeholder, metaFromResponse(data));
+        } catch (e) {
+          placeholder.classList.remove("loading");
+          placeholder.classList.add("error");
+          placeholder.querySelector(".body").textContent = "Network error: " + e.message;
+        } finally {
+          sendBtn.disabled = false;
+          resetBtn.disabled = false;
+          input.focus();
+        }
+      }
+
+      function resetConv() {
+        convId = newConvId();
+        localStorage.setItem(STORE, convId);
+        convLabel.textContent = "conv: " + convId;
+        Array.from(transcript.querySelectorAll(".msg")).forEach((m, i) => { if (i > 0) m.remove(); });
+        input.focus();
+      }
+
+      input.focus();
+    })();
+  </script>
+</body>
+</html>
