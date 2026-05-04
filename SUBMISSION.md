@@ -70,9 +70,12 @@ Input:
 {
   "conversation_id": "conv_abc123",
   "user_id": "user_42",
-  "message": "Hi, I can't log in after resetting my password yesterday."
+  "message": "Hi, I can't log in after resetting my password yesterday.",
+  "stream": false
 }
 ```
+
+`stream` is **optional**, defaults to `false`. When `true`, return server-sent events (`text/event-stream`); the grader's exercise-02 streaming test exercises this path. Implementations may omit it.
 
 Response:
 ```json
@@ -120,11 +123,12 @@ Capture user feedback against a previous reply.
   "trace_id": "tr_xyz",
   "rating": -1,
   "comment": "The bot quoted the wrong refund window — said 14 days, should have been 30 for Pro+.",
-  "expected_reply": "Per Pro+ extended policy, refund window is 30 days..."
+  "expected_reply": "Per Pro+ extended policy, refund window is 30 days...",
+  "submitted_by": "user_42"
 }
 ```
 
-`rating` is `-1` (bad), `0` (neutral), `1` (good). `expected_reply` is optional — when present, it's a candidate to promote to the eval set.
+`rating` is `-1` (bad), `0` (neutral), `1` (good). `expected_reply` is **optional** — when present, it's a candidate to promote to the eval set. `submitted_by` is **optional** — when present, the agent attaches the user identity to the feedback annotation; otherwise treat as anonymous.
 
 Response: `200 {"ok": true, "promoted_to_eval": true|false}`
 
