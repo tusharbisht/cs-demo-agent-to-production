@@ -1,0 +1,215 @@
+{
+  "branch": "exercise/02-state-and-fallback",
+  "endpoint": "GET /health",
+  "tests": [
+    {
+      "id": "health",
+      "endpoint_override": "GET /health",
+      "weight": 1.0,
+      "type": "smoke",
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "durable-state-across-restart",
+      "endpoint_override": "GET /state",
+      "weight": 5.0,
+      "type": "durability",
+      "expected": {
+        "status": 200,
+        "body_contains": [
+          "Alice"
+        ]
+      },
+      "setup": [
+        {
+          "method": "POST",
+          "path": "/chat",
+          "body": {
+            "conversation_id": "judge_state_001",
+            "user_id": "judge",
+            "message": "I'm Alice. Remember that."
+          }
+        }
+      ]
+    },
+    {
+      "id": "bounded-history-25-turns",
+      "endpoint_override": "POST /chat",
+      "weight": 3.0,
+      "type": "summary_compression",
+      "input": {
+        "conversation_id": "judge_state_bounded",
+        "user_id": "judge",
+        "message": "Latest message after a long history."
+      },
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "primary-429-falls-through",
+      "endpoint_override": "POST /chat",
+      "weight": 6.0,
+      "type": "fallback_chain",
+      "input": {
+        "conversation_id": "judge_fallback_429",
+        "user_id": "judge",
+        "message": "What's the warranty length?"
+      },
+      "headers": {
+        "X-Test-Force-Primary-429": "true"
+      },
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "primary-timeout-falls-through",
+      "endpoint_override": "POST /chat",
+      "weight": 4.0,
+      "type": "fallback_chain",
+      "input": {
+        "conversation_id": "judge_fallback_timeout",
+        "user_id": "judge",
+        "message": "Where do I track my order?"
+      },
+      "headers": {
+        "X-Test-Force-Primary-Timeout": "true"
+      },
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "all-tiers-fail-graceful-503",
+      "endpoint_override": "POST /chat",
+      "weight": 4.0,
+      "type": "graceful_degradation",
+      "input": {
+        "conversation_id": "judge_fallback_all",
+        "user_id": "judge",
+        "message": "Can you help me?"
+      },
+      "headers": {
+        "X-Test-Force-All-Fail": "true"
+      },
+      "expected": {
+        "status": 503
+      }
+    },
+    {
+      "id": "tool-timeout-graceful",
+      "endpoint_override": "POST /chat",
+      "weight": 3.0,
+      "type": "tool_timeout",
+      "input": {
+        "conversation_id": "judge_tool_timeout",
+        "user_id": "judge",
+        "message": "Look up account: order_id=ord_slow."
+      },
+      "headers": {
+        "X-Test-Slow-Kb-Ms": "6000"
+      },
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "streaming",
+      "endpoint_override": "POST /chat",
+      "weight": 2.0,
+      "type": "streaming",
+      "input": {
+        "conversation_id": "judge_stream",
+        "user_id": "judge",
+        "message": "Stream me a long answer about your premium plan.",
+        "stream": true
+      },
+      "headers": {
+        "Accept": "text/event-stream"
+      },
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "fallback-still-traced",
+      "endpoint_override": "GET /trace/{trace_id}",
+      "weight": 3.0,
+      "type": "trace_continuity",
+      "expected": {
+        "status": 200
+      },
+      "setup": [
+        {
+          "method": "POST",
+          "path": "/chat",
+          "body": {
+            "conversation_id": "judge_fallback_trace",
+            "user_id": "judge",
+            "message": "Help me reset my account."
+          },
+          "headers": {
+            "X-Test-Force-Primary-429": "true"
+          },
+          "capture_as": {
+            "key": "TID",
+            "from": "trace_id"
+          }
+        }
+      ]
+    },
+    {
+      "id": "state-endpoint-coherent",
+      "endpoint_override": "GET /state",
+      "weight": 2.0,
+      "type": "state_inspection",
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "cost-bounded-on-fallback",
+      "endpoint_override": "POST /chat",
+      "weight": 2.0,
+      "type": "cost_discipline",
+      "input": {
+        "conversation_id": "judge_cost_fallback",
+        "user_id": "judge",
+        "message": "Quick FAQ \u2014 opening hours?"
+      },
+      "headers": {
+        "X-Test-Force-Primary-429": "true"
+      },
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "no-regression-on-01",
+      "endpoint_override": "POST /chat",
+      "weight": 2.0,
+      "type": "regression_check",
+      "input": {
+        "conversation_id": "judge_state_regression",
+        "user_id": "judge",
+        "message": "Carry-over check from module 1."
+      },
+      "expected": {
+        "status": 200,
+        "citation_verbatim": true
+      }
+    },
+    {
+      "id": "eval-set-quality",
+      "endpoint_override": "GET /eval",
+      "weight": 2.0,
+      "type": "eval_inspection",
+      "expected": {
+        "status": 200
+      }
+    }
+  ]
+}

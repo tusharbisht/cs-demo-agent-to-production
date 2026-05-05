@@ -1,0 +1,197 @@
+{
+  "branch": "exercise/04-feedback-loops",
+  "endpoint": "GET /health",
+  "tests": [
+    {
+      "id": "health",
+      "endpoint_override": "GET /health",
+      "weight": 1.0,
+      "type": "smoke",
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "feedback-post-basic",
+      "endpoint_override": "POST /feedback",
+      "weight": 3.0,
+      "type": "endpoint_check",
+      "input": {
+        "trace_id": "{TID}",
+        "rating": -1,
+        "comment": "Reply quoted the wrong warranty length.",
+        "expected_reply": "Warranty is 24 months for premium tier.",
+        "submitted_by": "judge"
+      },
+      "expected": {
+        "status": 200
+      },
+      "setup": [
+        {
+          "method": "POST",
+          "path": "/chat",
+          "body": {
+            "conversation_id": "judge_fb_001",
+            "user_id": "judge",
+            "message": "What's the warranty on this product?"
+          },
+          "capture_as": {
+            "key": "TID",
+            "from": "trace_id"
+          }
+        }
+      ]
+    },
+    {
+      "id": "feedback-annotates-trace",
+      "endpoint_override": "GET /trace/{trace_id}",
+      "weight": 5.0,
+      "type": "trace_inspection",
+      "expected": {
+        "status": 200
+      },
+      "setup": [
+        {
+          "method": "POST",
+          "path": "/chat",
+          "body": {
+            "conversation_id": "judge_fb_002",
+            "user_id": "judge",
+            "message": "How long is the warranty?"
+          },
+          "capture_as": {
+            "key": "TID",
+            "from": "trace_id"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/feedback",
+          "body": {
+            "trace_id": "{TID}",
+            "rating": -1,
+            "comment": "Wrong number"
+          }
+        }
+      ]
+    },
+    {
+      "id": "promote-to-eval-flow-end-to-end",
+      "endpoint_override": "GET /eval",
+      "weight": 6.0,
+      "type": "workflow",
+      "expected": {
+        "status": 200
+      },
+      "setup": [
+        {
+          "method": "POST",
+          "path": "/chat",
+          "body": {
+            "conversation_id": "judge_promote",
+            "user_id": "judge",
+            "message": "What's the cancellation fee?"
+          },
+          "capture_as": {
+            "key": "TID",
+            "from": "trace_id"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/feedback",
+          "body": {
+            "trace_id": "{TID}",
+            "rating": -1,
+            "comment": "Wrong amount",
+            "expected_reply": "Cancellation fee is $10 within 30 days."
+          }
+        }
+      ]
+    },
+    {
+      "id": "reject-candidate-removes-from-queue",
+      "endpoint_override": "GET /feedback/eval-candidates",
+      "weight": 2.0,
+      "type": "workflow",
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "prompt-versions-listed",
+      "endpoint_override": "GET /prompt/versions",
+      "weight": 4.0,
+      "type": "endpoint_check",
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "prompt-version-trace-metadata",
+      "endpoint_override": "GET /trace/{trace_id}",
+      "weight": 4.0,
+      "type": "trace_inspection",
+      "expected": {
+        "status": 200
+      },
+      "setup": [
+        {
+          "method": "POST",
+          "path": "/chat",
+          "body": {
+            "conversation_id": "judge_pv_trace",
+            "user_id": "judge",
+            "message": "Quick question."
+          },
+          "capture_as": {
+            "key": "TID",
+            "from": "trace_id"
+          }
+        }
+      ]
+    },
+    {
+      "id": "eval-run-harness",
+      "endpoint_override": "POST /eval/run",
+      "weight": 4.0,
+      "type": "endpoint_check",
+      "input": {},
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "eval-history-divergent-scores",
+      "endpoint_override": "GET /eval",
+      "weight": 5.0,
+      "type": "history_check",
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "no-regression-01-02-03",
+      "endpoint_override": "POST /chat",
+      "weight": 3.0,
+      "type": "regression_check",
+      "input": {
+        "conversation_id": "judge_fb_regression",
+        "user_id": "judge",
+        "message": "All four capabilities still wired?"
+      },
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "eval-set-quality",
+      "endpoint_override": "GET /eval",
+      "weight": 3.0,
+      "type": "eval_inspection",
+      "expected": {
+        "status": 200
+      }
+    }
+  ]
+}

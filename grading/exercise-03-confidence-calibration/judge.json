@@ -1,0 +1,183 @@
+{
+  "branch": "exercise/03-confidence-calibration",
+  "endpoint": "GET /health",
+  "tests": [
+    {
+      "id": "health",
+      "endpoint_override": "GET /health",
+      "weight": 1.0,
+      "type": "smoke",
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "confidence-on-every-reply",
+      "endpoint_override": "POST /chat",
+      "weight": 2.0,
+      "type": "field_check",
+      "input": {
+        "conversation_id": "judge_conf_001",
+        "user_id": "judge",
+        "message": "What's your business hours?"
+      },
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "calibration-curve-endpoint",
+      "endpoint_override": "GET /calibration/curve",
+      "weight": 5.0,
+      "type": "calibration_evidence",
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "bin-lookup-endpoint",
+      "endpoint_override": "GET /calibration/bin",
+      "weight": 2.0,
+      "type": "calibration_evidence",
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "high-confidence-floor",
+      "endpoint_override": "POST /chat",
+      "weight": 5.0,
+      "type": "calibration_property",
+      "input": {
+        "conversation_id": "judge_high_conf",
+        "user_id": "judge",
+        "message": "What's the standard refund window?"
+      },
+      "expected": {
+        "status": 200,
+        "citation_verbatim": true
+      }
+    },
+    {
+      "id": "low-confidence-on-contradicting-kb",
+      "endpoint_override": "POST /chat",
+      "weight": 4.0,
+      "type": "calibration_property",
+      "input": {
+        "conversation_id": "judge_low_conf_contradict",
+        "user_id": "judge",
+        "message": "What's the refund policy for Pro+ accounts?"
+      },
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "refusal-floor-off-domain",
+      "endpoint_override": "POST /chat",
+      "weight": 4.0,
+      "type": "calibration_property",
+      "input": {
+        "conversation_id": "judge_off_domain",
+        "user_id": "judge",
+        "message": "What's the capital of Burkina Faso?"
+      },
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "ece-on-hidden-gold-set",
+      "endpoint_override": "GET /calibration/curve",
+      "weight": 6.0,
+      "type": "calibration_metric",
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "confidence-reasoning-non-trivial",
+      "endpoint_override": "POST /chat",
+      "weight": 2.0,
+      "type": "llm_judge",
+      "input": {
+        "conversation_id": "judge_conf_reason",
+        "user_id": "judge",
+        "message": "Walk me through cancelling at the end of my term."
+      },
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "trace-shape-confidence-spans",
+      "endpoint_override": "GET /trace/{trace_id}",
+      "weight": 3.0,
+      "type": "trace_inspection",
+      "expected": {
+        "status": 200
+      },
+      "setup": [
+        {
+          "method": "POST",
+          "path": "/chat",
+          "body": {
+            "conversation_id": "judge_conf_trace",
+            "user_id": "judge",
+            "message": "Do you ship internationally?"
+          },
+          "capture_as": {
+            "key": "TID",
+            "from": "trace_id"
+          }
+        }
+      ]
+    },
+    {
+      "id": "calibration-not-leaked",
+      "endpoint_override": "GET /calibration/curve",
+      "weight": 3.0,
+      "type": "anti_leakage",
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "escalation-routing-on-medium-conf",
+      "endpoint_override": "POST /chat",
+      "weight": 3.0,
+      "type": "threshold_policy",
+      "input": {
+        "conversation_id": "judge_escal",
+        "user_id": "judge",
+        "message": "Edge-case billing question that should escalate."
+      },
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "no-regression-01-02",
+      "endpoint_override": "POST /chat",
+      "weight": 2.0,
+      "type": "regression_check",
+      "input": {
+        "conversation_id": "judge_conf_regression",
+        "user_id": "judge",
+        "message": "Carry-over: still observable + has fallback."
+      },
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "eval-set-quality",
+      "endpoint_override": "GET /eval",
+      "weight": 2.0,
+      "type": "eval_inspection",
+      "expected": {
+        "status": 200
+      }
+    }
+  ]
+}

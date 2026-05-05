@@ -1,0 +1,165 @@
+{
+  "branch": "final/integrated",
+  "endpoint": "GET /health",
+  "tests": [
+    {
+      "id": "health-all-modules-active",
+      "endpoint_override": "GET /health",
+      "weight": 1.0,
+      "type": "smoke",
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "composite-normal-chat",
+      "endpoint_override": "POST /chat",
+      "weight": 5.0,
+      "type": "all_axes_normal",
+      "input": {
+        "conversation_id": "judge_final_normal",
+        "user_id": "judge",
+        "message": "Standard support question \u2014 what's your refund window?"
+      },
+      "expected": {
+        "status": 200,
+        "citation_verbatim": true
+      }
+    },
+    {
+      "id": "confidence-drives-fallback",
+      "endpoint_override": "POST /chat",
+      "weight": 4.0,
+      "type": "module_composition",
+      "input": {
+        "conversation_id": "judge_final_compose_1",
+        "user_id": "judge",
+        "message": "Edge-case product compatibility."
+      },
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "feedback-updates-calibration",
+      "endpoint_override": "GET /calibration/curve",
+      "weight": 5.0,
+      "type": "module_composition",
+      "expected": {
+        "status": 200
+      },
+      "setup": [
+        {
+          "method": "POST",
+          "path": "/chat",
+          "body": {
+            "conversation_id": "judge_final_fb",
+            "user_id": "judge",
+            "message": "Specific edge case."
+          },
+          "capture_as": {
+            "key": "TID",
+            "from": "trace_id"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/feedback",
+          "body": {
+            "trace_id": "{TID}",
+            "rating": -1,
+            "comment": "Wrong",
+            "expected_reply": "Correct"
+          }
+        }
+      ]
+    },
+    {
+      "id": "restart-preserves-feedback",
+      "endpoint_override": "GET /eval",
+      "weight": 4.0,
+      "type": "durability_composition",
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "all-tiers-fail-full-envelope",
+      "endpoint_override": "POST /chat",
+      "weight": 4.0,
+      "type": "module_composition",
+      "input": {
+        "conversation_id": "judge_final_all_fail",
+        "user_id": "judge",
+        "message": "Final composition under outage."
+      },
+      "headers": {
+        "X-Test-Force-All-Fail": "true"
+      },
+      "expected": {
+        "status": 503
+      }
+    },
+    {
+      "id": "composite-cost-ceiling",
+      "endpoint_override": "POST /chat",
+      "weight": 3.0,
+      "type": "cost_discipline",
+      "input": {
+        "conversation_id": "judge_final_cost",
+        "user_id": "judge",
+        "message": "Verify cost envelope."
+      },
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "trace-spans-from-all-modules",
+      "endpoint_override": "GET /trace/{trace_id}",
+      "weight": 4.0,
+      "type": "trace_inspection",
+      "expected": {
+        "status": 200
+      },
+      "setup": [
+        {
+          "method": "POST",
+          "path": "/chat",
+          "body": {
+            "conversation_id": "judge_final_trace",
+            "user_id": "judge",
+            "message": "Full composition trace check."
+          },
+          "capture_as": {
+            "key": "TID",
+            "from": "trace_id"
+          }
+        }
+      ]
+    },
+    {
+      "id": "eval-set-comprehensive",
+      "endpoint_override": "GET /eval",
+      "weight": 3.0,
+      "type": "eval_inspection",
+      "expected": {
+        "status": 200
+      }
+    },
+    {
+      "id": "p95-latency-under-all-modules",
+      "endpoint_override": "POST /chat",
+      "weight": 2.0,
+      "type": "latency",
+      "input": {
+        "conversation_id": "judge_final_lat",
+        "user_id": "judge",
+        "message": "Latency under full module composition."
+      },
+      "expected": {
+        "status": 200
+      }
+    }
+  ]
+}
