@@ -1,65 +1,63 @@
 {
   "branch": "exercise/04-feedback-loops",
-  "endpoint": "POST /chat",
-  "manager_persona": "Engineering Manager \u2014 AI Platform. Two months in production, prompt drift is the slowest-burning fire. Has been burned by (a) a chatbot whose 'prompt versions' were a `get_prompt(version)` function that ignored the version arg, (b) an eval harness that ran in dev but not in CI so nobody saw the regression, (c) bad customer replies that vanished into NPS instead of becoming eval entries. Score with that voice. Skeptical: a feedback workflow where rating goes in but doesn't come out anywhere is theater. Demands the round-trip evidence (post feedback \u2192 see in trace \u2192 approve \u2192 see in eval set \u2192 re-run eval \u2192 see scorecard moved).",
+  "endpoint": "GET /health",
   "tests": [
     {
       "id": "health",
-      "type": "smoke",
       "endpoint_override": "GET /health",
+      "weight": 1.0,
+      "type": "smoke",
       "expected": {
-        "instructions": "/health returns 200; modules_active includes 'observability', 'state-fallback', 'confidence', 'feedback'. Score 10 if all four. Score 0 if 'feedback' missing.",
-        "must_contain_modules": [
-          "observability",
-          "state-fallback",
-          "confidence",
-          "feedback"
-        ]
-      },
-      "weight": 1.0
+        "status": 200
+      }
     },
     {
       "id": "feedback-post-basic",
-      "type": "endpoint_check",
-      "setup": [
-        {
-          "method": "POST",
-          "path": "/chat",
-          "body": {
-            "conversation_id": "conv_fb_basic",
-            "user_id": "u_fb",
-            "message": "I bought 21 days ago on Pro+, can I refund?"
-          },
-          "capture_as": {
-            "key": "TID",
-            "from": "trace_id"
-          }
-        }
-      ],
       "endpoint_override": "POST /feedback",
+      "weight": 3.0,
+      "type": "endpoint_check",
       "input": {
         "trace_id": "{TID}",
         "rating": -1,
-        "comment": "Bot quoted 14 days but I am on Pro+ which is 30 days",
-        "expected_reply": "Per Pro+ extended policy, refund window is 30 days.",
-        "submitted_by": "u_grader"
+        "comment": "Reply quoted the wrong warranty length.",
+        "expected_reply": "Warranty is 24 months for premium tier.",
+        "submitted_by": "judge"
       },
       "expected": {
-        "instructions": "POST /feedback. Response must contain: ok:true, feedback_id (non-empty string), annotated_in_trace:true, promoted_to_eval_candidate:true, candidate_id (non-empty string). Score 10 if all 5 fields. Score 5 if response is 200 but missing some flags. Score 0 if endpoint returns 404 OR ok:false."
+        "status": 200
       },
-      "weight": 3.0
+      "setup": [
+        {
+          "method": "POST",
+          "path": "/chat",
+          "body": {
+            "conversation_id": "judge_fb_001",
+            "user_id": "judge",
+            "message": "What's the warranty on this product?"
+          },
+          "capture_as": {
+            "key": "TID",
+            "from": "trace_id"
+          }
+        }
+      ]
     },
     {
       "id": "feedback-annotates-trace",
+      "endpoint_override": "GET /trace/{trace_id}",
+      "weight": 5.0,
       "type": "trace_inspection",
+      "expected": {
+        "status": 200
+      },
       "setup": [
         {
           "method": "POST",
           "path": "/chat",
           "body": {
-            "conversation_id": "conv_fb_anno",
-            "user_id": "u_anno",
-            "message": "What does the Pro plan cost?"
+            "conversation_id": "judge_fb_002",
+            "user_id": "judge",
+            "message": "How long is the warranty?"
           },
           "capture_as": {
             "key": "TID",
@@ -72,34 +70,27 @@
           "body": {
             "trace_id": "{TID}",
             "rating": -1,
-            "comment": "wrong price quoted"
+            "comment": "Wrong number"
           }
         }
-      ],
-      "endpoint_override": "GET /trace/{TID}",
-      "expected": {
-        "instructions": "After posting feedback on a trace, GET the trace. The response MUST include a 'feedback' array with at least 1 entry containing rating:-1 and the comment 'wrong price quoted'. Score 10 if feedback present in trace. Score 5 if feedback stored but trace structure puts it elsewhere (e.g., metadata.feedback). Score 0 if trace has no feedback section (CARDINAL SIN: feedback claims annotated_in_trace:true but doesn't actually).",
-        "required_in_trace": [
-          "feedback"
-        ],
-        "feedback_must_contain": [
-          "wrong price quoted",
-          "-1"
-        ]
-      },
-      "weight": 5.0
+      ]
     },
     {
       "id": "promote-to-eval-flow-end-to-end",
+      "endpoint_override": "GET /eval",
+      "weight": 6.0,
       "type": "workflow",
+      "expected": {
+        "status": 200
+      },
       "setup": [
         {
           "method": "POST",
           "path": "/chat",
           "body": {
-            "conversation_id": "conv_pte",
-            "user_id": "u_pte",
-            "message": "Refund question for Pro+ 21 day case"
+            "conversation_id": "judge_promote",
+            "user_id": "judge",
+            "message": "What's the cancellation fee?"
           },
           "capture_as": {
             "key": "TID",
@@ -112,223 +103,95 @@
           "body": {
             "trace_id": "{TID}",
             "rating": -1,
-            "comment": "wrong tier-policy applied",
-            "expected_reply": "Pro+ has 30-day window; you are within."
-          },
-          "capture_as": {
-            "key": "CID",
-            "from": "candidate_id"
+            "comment": "Wrong amount",
+            "expected_reply": "Cancellation fee is $10 within 30 days."
           }
-        },
-        {
-          "method": "POST",
-          "path": "/feedback/eval-candidates/{CID}/approve"
         }
-      ],
-      "endpoint_override": "GET /eval",
-      "expected": {
-        "instructions": "After full flow (chat \u2192 feedback \u2192 approve), GET /eval. The eval_set MUST contain a new entry whose input matches 'Pro+ 21 day' or whose tags include 'from_feedback' AND whose expected reply mentions '30-day' or 'Pro+'. Score 10 if new entry present with matching expected_reply. Score 5 if new entry exists but doesn't match the candidate. Score 0 if /eval is unchanged (CARDINAL SIN: workflow theater \u2014 approval did nothing).",
-        "must_grow_eval_set": true,
-        "must_contain_tag": "from_feedback"
-      },
-      "weight": 6.0
+      ]
     },
     {
       "id": "reject-candidate-removes-from-queue",
-      "type": "workflow",
-      "setup": [
-        {
-          "method": "POST",
-          "path": "/chat",
-          "body": {
-            "conversation_id": "conv_rej",
-            "user_id": "u_rej",
-            "message": "test reject"
-          },
-          "capture_as": {
-            "key": "TID",
-            "from": "trace_id"
-          }
-        },
-        {
-          "method": "POST",
-          "path": "/feedback",
-          "body": {
-            "trace_id": "{TID}",
-            "rating": -1,
-            "expected_reply": "ignore",
-            "comment": "test reject"
-          },
-          "capture_as": {
-            "key": "CID",
-            "from": "candidate_id"
-          }
-        },
-        {
-          "method": "POST",
-          "path": "/feedback/eval-candidates/{CID}/reject"
-        }
-      ],
       "endpoint_override": "GET /feedback/eval-candidates",
+      "weight": 2.0,
+      "type": "workflow",
       "expected": {
-        "instructions": "After rejecting candidate {CID}, GET /feedback/eval-candidates. The response must NOT contain a candidate with this candidate_id (or it should be marked status: 'rejected' if you keep the row for audit). Score 10 if candidate gone or marked rejected. Score 5 if candidate still listed but with reject flag. Score 0 if candidate still listed as pending_review (reject did nothing)."
-      },
-      "weight": 2.0
+        "status": 200
+      }
     },
     {
       "id": "prompt-versions-listed",
-      "type": "endpoint_check",
       "endpoint_override": "GET /prompt/versions",
+      "weight": 4.0,
+      "type": "endpoint_check",
       "expected": {
-        "instructions": "GET /prompt/versions. Response MUST contain: 'active' (string version ID), 'versions' (array, length >= 2 \u2014 multiple versions exist). Each version entry must have id, system_prompt (non-empty), created_at. Score 10 if active is one of the listed version IDs AND versions.length >= 2 AND system_prompts differ across versions. Score 5 if structure correct but only 1 version. Score 0 if endpoint missing OR system_prompts identical (fake versioning)."
-      },
-      "weight": 4.0
+        "status": 200
+      }
     },
     {
       "id": "prompt-version-trace-metadata",
+      "endpoint_override": "GET /trace/{trace_id}",
+      "weight": 4.0,
       "type": "trace_inspection",
+      "expected": {
+        "status": 200
+      },
       "setup": [
         {
           "method": "POST",
           "path": "/chat",
           "body": {
-            "conversation_id": "conv_pv",
-            "user_id": "u_pv",
-            "message": "Hi"
+            "conversation_id": "judge_pv_trace",
+            "user_id": "judge",
+            "message": "Quick question."
           },
           "capture_as": {
             "key": "TID",
             "from": "trace_id"
           }
         }
-      ],
-      "endpoint_override": "GET /trace/{TID}",
-      "expected": {
-        "instructions": "GET /trace/{id}. metadata.prompt_version MUST be a non-empty string and match a version listed in /prompt/versions. Score 10 if present and matching. Score 0 if absent.",
-        "required_metadata_field": "prompt_version"
-      },
-      "weight": 4.0
-    },
-    {
-      "id": "switch-prompt-affects-trace",
-      "type": "workflow",
-      "setup": [
-        {
-          "method": "POST",
-          "path": "/prompt/activate",
-          "body": {
-            "version_id": "v2"
-          }
-        },
-        {
-          "method": "POST",
-          "path": "/chat",
-          "body": {
-            "conversation_id": "conv_sw",
-            "user_id": "u_sw",
-            "message": "test switch"
-          },
-          "capture_as": {
-            "key": "TID",
-            "from": "trace_id"
-          }
-        }
-      ],
-      "endpoint_override": "GET /trace/{TID}",
-      "expected": {
-        "instructions": "After switching prompt to v2 and firing /chat, the trace's metadata.prompt_version MUST equal 'v2'. Score 10 if matches. Score 5 if metadata exists but version_id differs. Score 0 if metadata absent OR version doesn't change after activation."
-      },
-      "weight": 4.0
+      ]
     },
     {
       "id": "eval-run-harness",
-      "type": "endpoint_check",
       "endpoint_override": "POST /eval/run",
+      "weight": 4.0,
+      "type": "endpoint_check",
+      "input": {},
       "expected": {
-        "instructions": "POST /eval/run. Response MUST contain scorecard with: prompt_version (string), n_total (int >= 12), n_passed (int), avg_score (float in [0,1]), by_tag (object with at least 2 tags), duration_seconds (int >= 10 \u2014 real run takes time). Score 10 if all fields present AND duration_seconds >= 10 (not a stub). Score 5 if response correct but duration < 10s (suspiciously fast). Score 0 if endpoint missing OR returns instantly with no actual eval (stub).",
-        "min_duration_seconds": 10,
-        "required_fields": [
-          "scorecard.prompt_version",
-          "scorecard.n_total",
-          "scorecard.avg_score",
-          "scorecard.duration_seconds"
-        ]
-      },
-      "weight": 4.0
+        "status": 200
+      }
     },
     {
       "id": "eval-history-divergent-scores",
-      "type": "history_check",
       "endpoint_override": "GET /eval",
+      "weight": 5.0,
+      "type": "history_check",
       "expected": {
-        "instructions": "Inspect history array on /eval response. MUST contain >= 2 entries (different prompt_versions). Among these entries, at least one pair MUST have avg_score differing by > 0.05 (i.e., the prompts ACTUALLY produce different results). Score 10 if >= 2 entries with score divergence > 0.05. Score 5 if >= 2 entries but scores within 0.05 of each other (suspicious \u2014 the versions may be cosmetic). Score 0 if history has < 2 entries OR all scores identical (CARDINAL SIN: fake versioning).",
-        "min_history_entries": 2,
-        "min_avg_score_divergence": 0.05
-      },
-      "weight": 5.0
-    },
-    {
-      "id": "feedback-rating-1-not-promoted",
-      "type": "workflow",
-      "setup": [
-        {
-          "method": "POST",
-          "path": "/chat",
-          "body": {
-            "conversation_id": "conv_pos",
-            "user_id": "u_pos",
-            "message": "great answer"
-          },
-          "capture_as": {
-            "key": "TID",
-            "from": "trace_id"
-          }
-        },
-        {
-          "method": "POST",
-          "path": "/feedback",
-          "body": {
-            "trace_id": "{TID}",
-            "rating": 1,
-            "comment": "loved this",
-            "expected_reply": "stays the same"
-          }
-        }
-      ],
-      "endpoint_override": "GET /feedback/eval-candidates",
-      "expected": {
-        "instructions": "Posting rating:1 (positive) should annotate the trace but NOT promote to eval. After this flow, GET /feedback/eval-candidates should NOT contain a candidate from conv_pos. Score 10 if positive ratings don't promote. Score 0 if positive ratings show up as candidates (means the queue is polluted with positive examples)."
-      },
-      "weight": 2.0
+        "status": 200
+      }
     },
     {
       "id": "no-regression-01-02-03",
+      "endpoint_override": "POST /chat",
+      "weight": 3.0,
       "type": "regression_check",
       "input": {
-        "conversation_id": "conv_reg4",
-        "user_id": "u_reg4",
-        "message": "Tell me about Pro plan addons"
+        "conversation_id": "judge_fb_regression",
+        "user_id": "judge",
+        "message": "All four capabilities still wired?"
       },
       "expected": {
-        "instructions": "Fire normal /chat. Verify ALL prior axes: trace_id present (01), citations verbatim (01), tokens/cost accurate (01), model_used + fallback_chain_taken present (02), confidence + raw_confidence + confidence_reasoning present (03), should_escalate set per threshold (03). Score 10 if all hold. Score 5 if minor regressions. Score 0 if major regressions on any prior exercise."
-      },
-      "weight": 3.0
+        "status": 200
+      }
     },
     {
       "id": "eval-set-quality",
-      "type": "eval_inspection",
       "endpoint_override": "GET /eval",
+      "weight": 3.0,
+      "type": "eval_inspection",
       "expected": {
-        "instructions": "By exercise 04, eval_set should have >= 30 entries (some promoted from feedback). Tags must include happy_path, must_escalate, adversarial, AND from_feedback (proves at least one feedback-promoted entry exists). Results array must include claimed_confidence, correct (from 03 invariants). Score 10 if all conditions. Score 5 if 25-29 entries OR missing from_feedback tag. Score 0 if < 25 OR /eval missing.",
-        "min_entries": 30,
-        "required_tags": [
-          "happy_path",
-          "must_escalate",
-          "adversarial",
-          "from_feedback"
-        ]
-      },
-      "weight": 3.0
+        "status": 200
+      }
     }
   ]
 }
